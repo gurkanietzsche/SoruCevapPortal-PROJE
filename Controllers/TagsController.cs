@@ -45,11 +45,22 @@ namespace SoruCevapPortal.API.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin,Questioner")]
-
-
         public async Task<IActionResult> CreateTag([FromBody] TagCreateDTO model)
         {
+            // Model doğrulama kontrolü
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             var tag = _mapper.Map<Tag>(model);
+
+            // Eğer Description null ise varsayılan bir değer atayalım
+            if (string.IsNullOrEmpty(tag.Description))
+            {
+                tag.Description = $"{model.Name} etiketi için açıklama"; // Varsayılan değer
+            }
+
             var createdTag = await _tagRepository.AddAsync(tag);
             var tagDTO = _mapper.Map<TagDTO>(createdTag);
             return CreatedAtAction(nameof(GetTag), new { id = createdTag.Id }, tagDTO);

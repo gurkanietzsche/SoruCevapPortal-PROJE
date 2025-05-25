@@ -21,7 +21,11 @@ namespace SoruCevapPortal.Repositories
                 .ThenByDescending(a => a.CreatedDate)
                 .ToListAsync();
         }
-
+        // Mevcut AnswerRepository.cs dosyasına eklenecek metod
+        public async Task<int> GetTotalCountAsync()
+        {
+            return await _context.Answers.CountAsync();
+        }
         public async Task<Answer> GetAnswerWithDetailsAsync(int id)
         {
             return await _context.Answers

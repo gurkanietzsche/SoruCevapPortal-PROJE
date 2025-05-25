@@ -27,7 +27,6 @@ namespace SoruCevapPortal.Controllers
         }
 
         // soruları listeleme metodu
-
         [HttpGet]
         public async Task<IActionResult> GetQuestions()
         {
@@ -37,7 +36,6 @@ namespace SoruCevapPortal.Controllers
         }
 
         // soruları id ye göre listeleme metodu
-
         [HttpGet("{id}")]
         public async Task<IActionResult> GetQuestion(int id)
         {
@@ -50,7 +48,21 @@ namespace SoruCevapPortal.Controllers
             return Ok(questionDTO);
         }
 
-        // soru oluşturma metodu
+        // Giriş yapan kullanıcının kendi sorularını listeleme
+        [HttpGet("my")]
+        [Authorize]
+        public async Task<IActionResult> GetMyQuestions()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null)
+                return Unauthorized();
+
+            var questions = await _questionRepository.GetQuestionsByUserAsync(userId);
+            var questionDTOs = _mapper.Map<IEnumerable<QuestionDTO>>(questions);
+            return Ok(questionDTOs);
+        }
+
+        // soru oluşturma metodu (tag zorunlu değil, hem ID hem de yeni etiket adları destekler)
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreateQuestion([FromBody] QuestionCreateDTO model)
@@ -70,18 +82,38 @@ namespace SoruCevapPortal.Controllers
                 Tags = new List<Tag>()
             };
 
-            // tag'leri manuel olarak işleme ve olşturma
+            // Var olan etiketleri ekle (tagIds olarak verilmişse)
+            if (model.TagIds != null && model.TagIds.Any())
+            {
+                foreach (var tagId in model.TagIds)
+                {
+                    var existingTag = await _tagRepository.GetByIdAsync(tagId);
+                    if (existingTag != null)
+                    {
+                        question.Tags.Add(existingTag);
+                    }
+                }
+            }
+
+            // Yeni etiketleri ekle (tags olarak verilmişse)
             if (model.Tags != null && model.Tags.Any())
             {
                 foreach (var tagName in model.Tags)
                 {
-                    var tag = await _tagRepository.GetByNameAsync(tagName);
-                    if (tag == null)
+                    if (!string.IsNullOrWhiteSpace(tagName))
                     {
-                        tag = new Tag { Name = tagName };
-                        await _tagRepository.AddAsync(tag);
+                        var tag = await _tagRepository.GetByNameAsync(tagName);
+                        if (tag == null)
+                        {
+                            tag = new Tag { Name = tagName };
+                            await _tagRepository.AddAsync(tag);
+                        }
+                        // Zaten eklenmediyse ekle
+                        if (!question.Tags.Any(t => t.Id == tag.Id))
+                        {
+                            question.Tags.Add(tag);
+                        }
                     }
-                    question.Tags.Add(tag);
                 }
             }
 
@@ -107,19 +139,42 @@ namespace SoruCevapPortal.Controllers
             _mapper.Map(model, question);
             question.UpdatedDate = DateTime.UtcNow;
 
-            if (model.Tags != null)
+            // Etiketleri güncelle
+            question.Tags?.Clear();
+            question.Tags = new List<Tag>();
+
+            // Var olan etiketleri ekle
+            if (model.TagIds != null && model.TagIds.Any())
             {
-                question.Tags?.Clear();
-                question.Tags = new List<Tag>();
+                foreach (var tagId in model.TagIds)
+                {
+                    var existingTag = await _tagRepository.GetByIdAsync(tagId);
+                    if (existingTag != null)
+                    {
+                        question.Tags.Add(existingTag);
+                    }
+                }
+            }
+
+            // Yeni etiketleri ekle
+            if (model.Tags != null && model.Tags.Any())
+            {
                 foreach (var tagName in model.Tags)
                 {
-                    var tag = await _tagRepository.GetByNameAsync(tagName);
-                    if (tag == null)
+                    if (!string.IsNullOrWhiteSpace(tagName))
                     {
-                        tag = new Tag { Name = tagName };
-                        await _tagRepository.AddAsync(tag);
+                        var tag = await _tagRepository.GetByNameAsync(tagName);
+                        if (tag == null)
+                        {
+                            tag = new Tag { Name = tagName };
+                            await _tagRepository.AddAsync(tag);
+                        }
+                        // Zaten eklenmediyse ekle
+                        if (!question.Tags.Any(t => t.Id == tag.Id))
+                        {
+                            question.Tags.Add(tag);
+                        }
                     }
-                    question.Tags.Add(tag);
                 }
             }
 
@@ -128,7 +183,6 @@ namespace SoruCevapPortal.Controllers
         }
 
         // idye göre soru silme metodu
-
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> DeleteQuestion(int id)
@@ -148,8 +202,7 @@ namespace SoruCevapPortal.Controllers
             return NoContent();
         }
 
-        // kullanıcı id sine göre cevapları listeleme metodu
-
+        // kullanıcı id sine göre soruları listeleme metodu
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetQuestionsByUser(string userId)
         {

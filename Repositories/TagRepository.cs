@@ -22,5 +22,10 @@ namespace SoruCevapPortal.Repositories
                 .OrderBy(t => t.Name)
                 .ToListAsync();
         }
+        // Mevcut TagRepository.cs dosyasına eklenecek metod
+        public async Task<int> GetTotalCountAsync()
+        {
+            return await _context.Tags.CountAsync();
+        }
     }
 }

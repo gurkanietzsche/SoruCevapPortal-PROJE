@@ -20,7 +20,11 @@ namespace SoruCevapPortal.Repositories
                 .OrderByDescending(q => q.CreatedDate)
                 .ToListAsync();
         }
-
+        // Mevcut QuestionRepository.cs dosyasına eklenecek metod
+        public async Task<int> GetActiveQuestionCountAsync()
+        {
+            return await _context.Questions.CountAsync();
+        }
         public async Task<Question> GetQuestionWithDetailsAsync(int id)
         {
             return await _context.Questions
